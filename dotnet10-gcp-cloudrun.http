@@ -1,0 +1,6 @@
+@dotnet10_gcp_cloudrun_HostAddress = http://localhost:5227
+
+GET {{dotnet10_gcp_cloudrun_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
