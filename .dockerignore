@@ -1,0 +1,26 @@
+# Ignore build output
+bin/
+obj/
+
+# IDEs and editors
+.vscode/
+.vs/
+.idea/
+
+# User files
+*.user
+*.suo
+*.userosscache
+
+# OS files
+.DS_Store
+
+# Git
+.git
+
+# Docker / compose
+docker-compose*.yml
+
+# Misc
+node_modules/
+*.log
