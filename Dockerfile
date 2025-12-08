@@ -14,11 +14,13 @@ WORKDIR /app
 
 # Running in container
 ENV DOTNET_RUNNING_IN_CONTAINER=true
-# Bind to the PORT provided by Cloud Run at runtime
-ENV ASPNETCORE_URLS="http://+:${PORT}"
 
-COPY --from=build /app/publish ./
+# Copy the published app from build stage
+COPY --from=build /app/publish .
 
-EXPOSE 8080
+# Cloud Run provides PORT at runtime; default to 8080 if not set
+ENV PORT=8080
+ENV ASPNETCORE_URLS=http://+:${PORT}
 
+# Set the entrypoint
 ENTRYPOINT ["dotnet", "dotnet10-gcp-cloudrun.dll"]
