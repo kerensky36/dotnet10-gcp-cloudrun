@@ -1,0 +1,65 @@
+name: Build and Deploy to Cloud Run
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  IMAGE_NAME: dotnet10-gcp-cloudrun
+  REGION: ${{ secrets.CLOUD_RUN_REGION }}
+  ARTIFACT_REPO: dotnet10-gcp-cloudrun
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Authenticate to GCP using Workload Identity Federation
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }} # e.g. projects/12345/locations/global/workloadIdentityPools/POOL/providers/PROVIDER
+          service_account: ${{ secrets.GCP_SA_EMAIL }}            # service account email in GCP to impersonate
+          export_default_credentials: true
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Install gcloud
+        uses: google-github-actions/setup-gcloud@v1
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+
+      - name: Deploy to Cloud Run
+        env:
+          IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/${{ env.ARTIFACT_REPO }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          SERVICE: ${{ secrets.CLOUD_RUN_SERVICE }}
+          REGION: ${{ secrets.CLOUD_RUN_REGION }}
+        run: |
+          # Deploy the image to Cloud Run.
+          # To map a Secret Manager secret to SWAGGER_AUTH_PASSWORD, replace SECRET_NAME below and keep the --set-secrets flag.
+          # Example: --set-secrets SWAGGER_AUTH_PASSWORD=projects/PROJECT/secrets/swagger-password:latest
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --platform managed \
+            --allow-unauthenticated \
+            --quiet
